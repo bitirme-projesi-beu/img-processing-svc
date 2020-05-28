@@ -25,12 +25,12 @@ def processing():
     try:
         date_iso = datetime.now().isoformat()
         detector = PlateDetector()
-        plate_text = detector.detect('./test/resources/test2.jpg')
+        plate_text = detector.detect('./test/resources/test-image.jpg')
         match = re.search('([0-9]{2} [A-Z]{1,4} [0-9]{1,3})', plate_text)
         return {
             'at': date_iso,
             'result': ('success' if match else 'fail'),
-            'detected_plate': match.group(1),
+            'detected_plate': plate_text,
         };
     except Exception as e:
         return {
