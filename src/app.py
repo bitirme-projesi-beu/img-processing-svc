@@ -1,16 +1,88 @@
+import re
+import traceback
+import requests
+import os
+
+from threading import Thread
 from flask import Flask
-app = Flask(__name__)
+from detector.plateDetector import PlateDetector
+from datetime import datetime
+from time import sleep
+from dotenv import load_dotenv, find_dotenv
 
-@app.route('/')
+server = Flask(__name__)
+load_dotenv(find_dotenv())
+
+test_data_paths = ['test1.jpg', 'test2.jpg', 'test3.jpg']
+
+@server.route('/health', methods=['GET'])
 def index():
-    return 'img-processing-svc'
+    try:
+        detector = PlateDetector()
+        return {
+            'status': 'up',
+            'at': datetime.now().today()
+        }
+    except:
+        return {
+            'status': 'down',
+            'at': datetime.now().isoformat()
+        }
 
-@app.route('/api/v1/processed')
+@server.route('/api/v1/detected/test', methods=['GET'])
 def processing():
-    return {
-        'at': '20230215T124231Z',
-        'type': 'DETECTED_RESULT',
-        'detected_plate': '34ABC123',
-    };
+    try:
+        date_iso = datetime.now().isoformat()
+        detector = PlateDetector()
+        plate_text = detector.detect('./test/resources/test1.jpg')
+        return {
+            'at': date_iso,
+            'result': 'success',
+            'detected_plate': plate_text,
+        };
+    except Exception as e:
+        return {
+            'at': date_iso,
+            'result': 'fail',
+            'cause': traceback.format_exc()
+        }
 
-    app.run()
+@server.route('/api/v1/detection/start', methods=['GET'])
+def start():
+    start_process.start()
+    date_iso = datetime.now().isoformat()
+    return {
+        'result': 'Detection started.',
+        'at': date_iso
+    }
+
+def start_detection():
+    try:
+        detector = PlateDetector()
+        domain = os.getenv("BACKEND_SERVICE_URL")
+        TOKEN = os.getenv("HARD_TOKEN")
+        RESOURCE_PATH = os.getenv("RESOURCE_PATH")
+        URL = f"{domain}/api/v2/tickets"
+        for image_path in test_data_paths:
+            sleep(5)
+            detection_result = detector.detect(f"{RESOURCE_PATH}/{image_path}")
+            detection_result = os.linesep.join([s for s in detection_result.splitlines() if s and len(s) > 1])
+            detection_result = detection_result.replace(" ", "")
+            date_iso = datetime.now().isoformat()
+            data = {
+                "parkingLotId": 1,
+                "plate": detection_result,
+                "createdAt": date_iso,
+                "isItInside": True,
+            }
+            res = requests.post(URL, data, headers={"Authorization": f"Bearer {TOKEN}"})
+            print('Response', res.status_code)
+            print('Res', res.text)
+    except Exception as e:
+            print('Exception', e)
+
+if __name__ == "__main__":
+    start_process = Thread(target=start_detection)
+    server.run(debug=True)
+    # create in memory db
+    pass
