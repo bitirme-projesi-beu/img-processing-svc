@@ -2,6 +2,7 @@ import re
 import traceback
 import requests
 import os
+import json
 
 from threading import Thread
 from flask import Flask
@@ -63,21 +64,22 @@ def start_detection():
         TOKEN = os.getenv("HARD_TOKEN")
         RESOURCE_PATH = os.getenv("RESOURCE_PATH")
         URL = f"{domain}/api/v2/tickets"
+
         for image_path in test_data_paths:
-            sleep(5)
+            sleep(15)
             detection_result = detector.detect(f"{RESOURCE_PATH}/{image_path}")
             detection_result = os.linesep.join([s for s in detection_result.splitlines() if s and len(s) > 1])
             detection_result = detection_result.replace(" ", "")
             date_iso = datetime.now().isoformat()
             data = {
-                "parkingLotId": 1,
+                "parkingLotId": 7,
                 "plate": detection_result,
-                "createdAt": date_iso,
-                "isItInside": True,
+                "createdAt": date_iso
             }
-            res = requests.post(URL, data, headers={"Authorization": f"Bearer {TOKEN}"})
-            print('Response', res.status_code)
-            print('Res', res.text)
+            headers = {"content-type": "application/json", "authorization": "Bearer "+ TOKEN}
+            res = requests.post(URL, data=json.dumps(data), headers=headers)
+            print('Res', res.content)
+            print(detection_result)
     except Exception as e:
             print('Exception', e)
 
